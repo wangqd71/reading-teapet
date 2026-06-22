@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { readFileWithEncoding, splitIntoChapters, paginateText, isPdfFile, parsePdfFromFile } from '../utils/fileReader'
+import { readFileWithEncoding, splitIntoChapters, paginateText, isPdfFile, parsePdfFromFile, parsePdfFromBuffer } from '../utils/fileReader'
 
 export const useReaderStore = defineStore('reader', () => {
   const fileName = ref('')
@@ -62,7 +62,7 @@ export const useReaderStore = defineStore('reader', () => {
         for (let i = 0; i < binaryStr.length; i++) {
           bytes[i] = binaryStr.charCodeAt(i)
         }
-        text = await parsePdfFromFile(new Blob([bytes.buffer], { type: 'application/pdf' }))
+        text = await parsePdfFromBuffer(bytes)
       }
       fileName.value = name
       fileEncoding.value = encoding

@@ -1,21 +1,13 @@
-let pdfjsLib = null
-
-async function ensurePdfJs() {
-  if (pdfjsLib) return pdfjsLib
-  const pdfjs = await import('pdfjs-dist')
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
-  pdfjsLib = pdfjs
-  return pdfjs
-}
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs'
 
 export function isPdfFile(name) {
   return /\.pdf$/i.test(name)
 }
 
 export async function parsePdfFromFile(file) {
-  const pdfjs = await ensurePdfJs()
   const buf = await file.arrayBuffer()
-  const doc = await pdfjs.getDocument({ data: buf }).promise
+  const data = new Uint8Array(buf)
+  const doc = await pdfjsLib.getDocument({ data }).promise
   const pages = []
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i)
@@ -26,9 +18,9 @@ export async function parsePdfFromFile(file) {
   return pages.join('\n\n')
 }
 
-export async function parsePdfFromBuffer(buf, encoding) {
-  const pdfjs = await ensurePdfJs()
-  const doc = await pdfjs.getDocument({ data: buf }).promise
+export async function parsePdfFromBuffer(buf) {
+  const data = buf instanceof Uint8Array ? buf : new Uint8Array(buf)
+  const doc = await pdfjsLib.getDocument({ data }).promise
   const pages = []
   for (let i = 1; i <= doc.numPages; i++) {
     const page = await doc.getPage(i)
@@ -74,21 +66,24 @@ function isValidText(text) {
 }
 
 export function splitIntoChapters(text) {
-  const chapterRegex = /^(第[一二三四五六七八九十百千零\d]+[章节回卷篇集部][\s\S]*?)(?=^第[一二三四五六七八九十百千零\d]+[章节回卷篇集部]|\Z)/gm
-  const matches = text.match(chapterRegex)
+  const chapterRegex = /^\s*(第[一二三四五六七八九十百千零\d]+[章节回卷篇集部])/gm
+  const parts = text.split(chapterRegex).filter(Boolean)
 
-  if (matches && matches.length > 1) {
-    return matches.map((content, index) => ({
-      id: index,
-      title: extractChapterTitle(content),
-      content: content.trim()
-    }))
+  if (parts.length === 0) return [{ id: 0, title: '全文', content: text }]
+
+  const chapters = []
+  for (let i = 0; i < parts.length; i += 2) {
+    const title = parts[i]
+    const content = (parts[i + 1] || '').trim()
+    if (content) {
+      chapters.push({ id: chapters.length, title: title.trim(), content })
+    }
   }
+
+  if (chapters.length > 1) return chapters
 
   const paragraphs = text.split(/\n\s*\n|\r\n\s*\r\n/).filter(p => p.trim())
   const chunkSize = Math.max(20, Math.floor(paragraphs.length / 10))
-  const chapters = []
-
   for (let i = 0; i < paragraphs.length; i += chunkSize) {
     const chunk = paragraphs.slice(i, i + chunkSize)
     chapters.push({
@@ -108,7 +103,6 @@ function extractChapterTitle(content) {
 }
 
 export function paginateText(text, charsPerPage) {
-  // Split by double newlines (paragraph breaks), not single newlines
   const paragraphs = text.split(/\n\s*\n|\r\n\s*\r\n/).filter(p => p.trim())
   const pages = []
   let currentPage = ''
@@ -117,7 +111,6 @@ export function paginateText(text, charsPerPage) {
   for (const para of paragraphs) {
     const paraLen = para.replace(/\n|\r\n/g, '').length
 
-    // If this paragraph alone is longer than a page, split it internally
     if (paraLen > charsPerPage) {
       if (currentPage.trim()) {
         pages.push(currentPage.trim())
