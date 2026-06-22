@@ -1,12 +1,12 @@
 <template>
   <div class="file-loader" @click="triggerInput" @drop.prevent="onDrop" @dragover.prevent>
-    <input ref="fileInput" type="file" accept=".txt,.text,.log,.md,.csv" @change="onFileChange" hidden />
+    <input ref="fileInput" type="file" accept=".txt,.text,.log,.md,.csv,.pdf" @change="onFileChange" hidden />
     <div class="loader-content">
       <div class="loader-icon">📖</div>
       <div class="loader-text">
         <p class="loader-title">打开TXT文件开始冒险</p>
         <p class="loader-hint">点击选择文件 或 拖拽文件到此处</p>
-        <p class="loader-formats">支持 .txt .text .log .md .csv 格式</p>
+        <p class="loader-formats">支持 .txt .pdf .md .csv 等格式</p>
       </div>
     </div>
   </div>

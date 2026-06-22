@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { readFileWithEncoding, splitIntoChapters, paginateText } from '../utils/fileReader'
+import { readFileWithEncoding, splitIntoChapters, paginateText, isPdfFile, parsePdfFromFile } from '../utils/fileReader'
 
 export const useReaderStore = defineStore('reader', () => {
   const fileName = ref('')
@@ -12,7 +12,7 @@ export const useReaderStore = defineStore('reader', () => {
   const pagesRead = ref(0)
   const bookmarks = ref([])
   const isLoaded = ref(false)
-  const charsPerPage = ref(800)
+  const charsPerPage = ref(600)
   const fontSize = ref(16)
   const lineHeight = ref(1.8)
   const viewMode = ref('single')
@@ -31,7 +31,15 @@ export const useReaderStore = defineStore('reader', () => {
 
   async function loadFile(file) {
     try {
-      const { text, encoding } = await readFileWithEncoding(file)
+      let text, encoding
+      if (isPdfFile(file.name)) {
+        text = await parsePdfFromFile(file)
+        encoding = 'pdf'
+      } else {
+        const result = await readFileWithEncoding(file)
+        text = result.text
+        encoding = result.encoding
+      }
       fileName.value = file.name
       fileEncoding.value = encoding
       chapters.value = splitIntoChapters(text)
@@ -41,6 +49,30 @@ export const useReaderStore = defineStore('reader', () => {
       return true
     } catch (e) {
       console.error('File load failed:', e)
+      return false
+    }
+  }
+
+  async function loadFromElectron(name, content, encoding) {
+    try {
+      let text = content
+      if (encoding === 'pdf') {
+        const binaryStr = atob(content)
+        const bytes = new Uint8Array(binaryStr.length)
+        for (let i = 0; i < binaryStr.length; i++) {
+          bytes[i] = binaryStr.charCodeAt(i)
+        }
+        text = await parsePdfFromFile(new Blob([bytes.buffer], { type: 'application/pdf' }))
+      }
+      fileName.value = name
+      fileEncoding.value = encoding
+      chapters.value = splitIntoChapters(text)
+      currentChapter.value = 0
+      loadChapter(0)
+      isLoaded.value = true
+      return true
+    } catch (e) {
+      console.error('Electron file load failed:', e)
       return false
     }
   }
@@ -168,7 +200,7 @@ export const useReaderStore = defineStore('reader', () => {
     pages, pagesRead, bookmarks, isLoaded,
     charsPerPage, fontSize, lineHeight, viewMode, scrollMode,
     totalPages, currentContent, chapterTitle, progressPercent,
-    loadFile, loadChapter, nextPage, prevPage, goToPage,
+    loadFile, loadFromElectron, loadChapter, nextPage, prevPage, goToPage,
     addBookmark, removeBookmark, goToBookmark,
     saveProgress, loadProgress, loadBookmarks
   }

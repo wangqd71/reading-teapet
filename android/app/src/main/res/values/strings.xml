@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">阅读茶宠</string>
+    <string name="title_activity_main">阅读茶宠</string>
+    <string name="package_name">com.wangqd.readingteapet</string>
+    <string name="custom_url_scheme">com.wangqd.readingteapet</string>
+</resources>

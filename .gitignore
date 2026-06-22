@@ -21,4 +21,17 @@ dist-ssr
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
+# Build outputs
+*.exe
+*.apk
+*.zip
+*.tar.gz
+release/
+android/gradle/wrapper/gradle-wrapper.jar
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+
+# Test files
+新建*

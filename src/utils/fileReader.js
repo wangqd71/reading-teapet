@@ -1,3 +1,44 @@
+let pdfjsLib = null
+
+async function ensurePdfJs() {
+  if (pdfjsLib) return pdfjsLib
+  const pdfjs = await import('pdfjs-dist')
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`
+  pdfjsLib = pdfjs
+  return pdfjs
+}
+
+export function isPdfFile(name) {
+  return /\.pdf$/i.test(name)
+}
+
+export async function parsePdfFromFile(file) {
+  const pdfjs = await ensurePdfJs()
+  const buf = await file.arrayBuffer()
+  const doc = await pdfjs.getDocument({ data: buf }).promise
+  const pages = []
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i)
+    const content = await page.getTextContent()
+    const text = content.items.map(item => item.str).join(' ')
+    pages.push(text)
+  }
+  return pages.join('\n\n')
+}
+
+export async function parsePdfFromBuffer(buf, encoding) {
+  const pdfjs = await ensurePdfJs()
+  const doc = await pdfjs.getDocument({ data: buf }).promise
+  const pages = []
+  for (let i = 1; i <= doc.numPages; i++) {
+    const page = await doc.getPage(i)
+    const content = await page.getTextContent()
+    const text = content.items.map(item => item.str).join(' ')
+    pages.push(text)
+  }
+  return pages.join('\n\n')
+}
+
 export async function readFileWithEncoding(file) {
   const encodings = ['utf-8', 'gbk', 'gb2312', 'big5', 'euc-jp', 'shift_jis']
 
@@ -67,19 +108,42 @@ function extractChapterTitle(content) {
 }
 
 export function paginateText(text, charsPerPage) {
-  const paragraphs = text.split(/\n|\r\n/).filter(p => p.trim())
+  // Split by double newlines (paragraph breaks), not single newlines
+  const paragraphs = text.split(/\n\s*\n|\r\n\s*\r\n/).filter(p => p.trim())
   const pages = []
   let currentPage = ''
   let currentLength = 0
 
   for (const para of paragraphs) {
-    if (currentLength + para.length > charsPerPage && currentPage.length > 0) {
+    const paraLen = para.replace(/\n|\r\n/g, '').length
+
+    // If this paragraph alone is longer than a page, split it internally
+    if (paraLen > charsPerPage) {
+      if (currentPage.trim()) {
+        pages.push(currentPage.trim())
+        currentPage = ''
+        currentLength = 0
+      }
+      const lines = para.split(/\n|\r\n/).filter(l => l.trim())
+      for (const line of lines) {
+        if (currentLength + line.length > charsPerPage && currentPage.length > 0) {
+          pages.push(currentPage.trim())
+          currentPage = ''
+          currentLength = 0
+        }
+        currentPage += line + '\n'
+        currentLength += line.length + 1
+      }
+      continue
+    }
+
+    if (currentLength + paraLen > charsPerPage && currentPage.length > 0) {
       pages.push(currentPage.trim())
       currentPage = ''
       currentLength = 0
     }
     currentPage += para + '\n'
-    currentLength += para.length
+    currentLength += paraLen + 1
   }
 
   if (currentPage.trim()) {

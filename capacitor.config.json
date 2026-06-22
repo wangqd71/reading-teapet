@@ -1,0 +1,8 @@
+{
+  "appId": "com.wangqd.readingteapet",
+  "appName": "阅读茶宠",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
